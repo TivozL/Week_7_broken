@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Виртуальное окружение
+.venv/
+venv/
+ENV/
+env/
+
+# Базы данных
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE
+.idea/
+.vscode/
+.DS_Store
+
+# Логи
+*.log
+errors.log
+
+# Тесты
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Настройки
+.env
+.env.local
