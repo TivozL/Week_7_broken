@@ -2,16 +2,18 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from typing import Optional, List
 from datetime import date
 from fastapi.responses import Response
+from sqlalchemy.orm import Session
 
 from app.services import TransactionServices
+from app.database import get_db
 from app.schemas import (
     TransactionCreate,
     TransactionUpdate,
     TransactionRead,
     StatsResponse,
-    ImportResult, is_valid_date_range
+    ImportResult,
+    is_valid_date_range
 )
-
 from app.logger import router_logger
 
 router = APIRouter(
@@ -19,15 +21,15 @@ router = APIRouter(
     tags=["transactions"]
 )
 
-def get_service() -> TransactionServices:
-    return TransactionServices()
+
+def get_service(db: Session = Depends(get_db)) -> TransactionServices:
+    return TransactionServices(db)
+
 
 async def validate_dates(
     start_date: Optional[date] = Query(None, description="Start date (YYYY-MM-DD)"),
     end_date: Optional[date] = Query(None, description="End date (YYYY-MM-DD)")
 ) -> tuple[Optional[date], Optional[date]]:
-    #Dependency для валидации дат в query параметрах
-
     try:
         is_valid_date_range(start_date, end_date)
     except ValueError as e:
@@ -35,9 +37,9 @@ async def validate_dates(
     return start_date, end_date
 
 
-#=======end-points========
+# ======= ENDPOINTS =======
 
-@router.post(       #создание новой транзакции
+@router.post(
     "/transactions",
     response_model=TransactionRead,
     status_code=201,
@@ -45,14 +47,14 @@ async def validate_dates(
     description="Creates a new income or expense transaction"
 )
 def create_transaction(
-        data:TransactionCreate,
-        service: TransactionServices = Depends(get_service)
+    data: TransactionCreate,
+    service: TransactionServices = Depends(get_service)
 ):
     router_logger.info(f"POST /transactions - Creating transaction: type={data.type}, amount={data.amount}")
     return service.create(data)
 
 
-@router.get(        #получить транзакции с фильтрацией
+@router.get(
     "/transactions",
     response_model=List[TransactionRead],
     summary="Get all transactions",
@@ -66,27 +68,27 @@ def get_transactions(
     start_date, end_date = dates
     router_logger.debug(f"GET /transactions - Filters: category={category}, start={start_date}, end={end_date}")
     return service.get_all(
-        category = category,
-        start_date = start_date,
-        end_date = end_date
+        category=category,
+        start_date=start_date,
+        end_date=end_date
     )
 
 
-@router.get(        #получить транзакцию по id
+@router.get(
     "/transactions/{transaction_id}",
     response_model=TransactionRead,
     summary="Get transactions by ID",
     description="Returns transaction by ID"
 )
 def get_transaction_by_id(
-        transaction_id: int,
-        service: TransactionServices = Depends(get_service)
+    transaction_id: int,
+    service: TransactionServices = Depends(get_service)
 ):
     router_logger.debug(f"GET /transactions/{transaction_id}")
     return service.get_by_id(transaction_id)
 
 
-@router.patch(      #обновить транзакцию
+@router.patch(
     "/transactions/{transaction_id}",
     response_model=TransactionRead,
     summary="Update transaction",
@@ -101,8 +103,8 @@ def update_transaction(
     return service.update(transaction_id, data)
 
 
-@router.delete(         #удаление транзакции
-"/transactions/{transaction_id}",
+@router.delete(
+    "/transactions/{transaction_id}",
     status_code=204,
     summary="Delete transaction",
     description="Deletes a transaction by ID"
@@ -116,8 +118,8 @@ def delete_transaction(
     return None
 
 
-@router.get(        #получить статистику
-"/stats",
+@router.get(
+    "/stats",
     response_model=StatsResponse,
     summary="Get statistics",
     description="Returns statistics for all transactions"
@@ -135,14 +137,14 @@ def get_stats(
 
 
 @router.post(
-"/import",
+    "/import",
     response_model=ImportResult,
     summary="Import transactions from CSV",
     description="Upload a CSV file to import transactions"
 )
 def import_csv(
-        file: UploadFile = File(..., description="CSV file with transactions"),
-        service: TransactionServices = Depends(get_service)
+    file: UploadFile = File(..., description="CSV file with transactions"),
+    service: TransactionServices = Depends(get_service)
 ):
     router_logger.info(f"POST /import - Importing CSV file: {file.filename}")
     if not file.filename.endswith('.csv'):
